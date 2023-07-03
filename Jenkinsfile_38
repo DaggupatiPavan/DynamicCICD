@@ -1,0 +1,59 @@
+Sample pipeline: groovy
+pipeline {
+    agent any
+    
+    tools {
+        maven 'Maven'
+        git 'Git'
+        dockerTools 'Docker'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'master', url: 'https://github.com/your-repo.git'
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                script {
+                    def mvnHome = tool 'Maven'
+                    sh "${mvnHome}/bin/mvn clean install"
+                }
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    def dockerHome = tool 'Docker'
+                    sh "${dockerHome}/bin/docker build -t your-image-tag ."
+                }
+            }
+        }
+        
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    def dockerHome = tool 'Docker'
+                    sh "${dockerHome}/bin/docker push your-image-tag"
+                }
+            }
+        }
+        
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    // Assuming you have the Kubernetes credentials configured in Jenkins
+                    def kubeConfig = readYaml file: 'kubeconfig.yml'
+
+                    kubeConfig.withKubeConfig([credentialsId: 'your-kubernetes-credentials', serverUrl: 'your-kubernetes-server-url']) {
+                        sh "kubectl apply -f your-kubernetes-manifest.yaml"
+                    }
+                }
+            }
+        }
+    }
+}
+
