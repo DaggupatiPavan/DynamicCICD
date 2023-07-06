@@ -1,0 +1,71 @@
+Sample pipeline: groovy
+pipeline {
+    agent any
+    
+    stages {
+        stage('Git Checkout') {
+            steps {
+                git(branch: 'master', url: 'https://github.com/your/repository.git')
+            }
+        }
+        
+        stage('Build with Maven') {
+            steps {
+                withMaven(maven: 'maven-3.8.4', mavenSettingsConfig: 'my-maven-settings') {
+                    sh 'mvn clean install'
+                }
+            }
+        }
+        
+        stage('Code Quality Analysis with SonarQube') {
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                    sh 'mvn sonar:sonar'
+                }
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t my-app:latest .'
+            }
+        }
+        
+        stage('Push Docker Image to Nexus') {
+            steps {
+                script {
+                    nexusArtifactUploader(
+                        nexusVersion: '3',
+                        protocol: 'http',
+                        nexusUrl: 'http://nexus-url',
+                        groupId: 'com.example',
+                        version: '1.0.0',
+                        repository: 'my-repository',
+                        credentialsId: 'nexus-credentials',
+                        artifacts: [
+                            // List of artifacts to upload
+                            [artifactId: 'my-app', type: 'docker', classifier: 'latest', file: 'my-app:latest']
+                        ]
+                    )
+                }
+            }
+        }
+        
+        stage('Deploy to JFrog Artifactory') {
+            steps {
+                rtUpload(
+                    serverId: 'artifactory',
+                    spec: '''{
+                        "files": [
+                            {
+                              "pattern": "target/*.jar",
+                              "target": "maven-repo-local/"
+                            }
+                        ]
+                    }'''
+                )
+            }
+        }
+    }
+}
+
